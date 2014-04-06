@@ -186,6 +186,8 @@ function! s:PHPCustomFolds() " {{{
         call s:PHPFoldPureBlock('^\s*\(abstract\s*\)\?class', s:FOLD_WITH_PHPDOC)
     endif
 
+	call s:PHPFoldClassHeader('^\s*\(abstract\s*\)\?class')
+
 	" Fold define()'s with their PhpDoc
 	call s:PHPFoldProperties('^\s*define\s*(', ";", s:FOLD_WITH_PHPDOC)
 
@@ -201,6 +203,60 @@ function! s:PHPCustomFolds() " {{{
 
 	" Fold PhpDoc "DocBlock" templates (#@+ foo #@-)
 	call s:PHPFoldMarkers('#@+', '#@-')
+endfunction
+" }}}
+function! s:PHPFoldClassHeader(startPattern, ...) " {{{
+	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
+	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
+	let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
+
+	if a:0 >= 1
+		" Do we also put the PHP doc part in the fold?
+		let s:currentPhpDocMode = a:1
+	endif
+	if a:0 >= 2
+		" How far do we want to look for PhpDoc comments?
+		let s:searchPhpDocLineCount = a:2
+	endif
+	if a:0 == 3
+		" How greedy are we on postfixing empty lines?
+		let s:searchEmptyLinesPostfixing = a:3
+	endif
+
+	" Move to file end
+	exec s:fileLineCount
+
+	" Loop through file, searching for folds
+	while 1
+		let s:lineStart = s:FindPureBlockStart(a:startPattern)
+
+		if s:lineStart != 0
+
+			let s:lineStart = s:FindOptionalPHPDocComment()
+			let s:lineStart = s:SkipComments(s:lineStart)
+			let s:lineStop = s:FindClassHeaderEnd()
+
+			" Stop on Error
+			if s:lineStop == 0
+				break
+			endif
+
+			" Do something with the potential fold based on the Mode we're in
+			call s:HandleFold()
+
+		else
+			break
+		endif
+
+		" Goto fold start (remember we're searching upwards)
+		exec s:lineStart
+	endwhile
+
+
+	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
+    	" Remove created folds
+	    normal! zR
+    endif
 endfunction
 " }}}
 function! s:PHPFoldPureBlock(startPattern, ...) " {{{
@@ -518,6 +574,15 @@ function! s:FindPureBlockEnd(startPair, endPair, searchStartPairFirst, ...) " {{
 		endwhile
 	endif
 
+	return line
+endfunction
+" }}}
+function! s:FindClassHeaderEnd() " {{{
+	let line = search('function ', 'W')
+
+	while foldlevel(line) != 0 && line > 0
+		let line = line -1
+	endwhile
 	return line
 endfunction
 " }}}
