@@ -231,6 +231,7 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 		if s:lineStart != 0
 
 			let s:lineStart = s:FindOptionalPHPDocComment()
+			let s:lineStart = s:SkipComments(s:lineStart)
 			let s:lineStop = s:FindPureBlockEnd('{', '}', s:SEARCH_PAIR_START_FIRST)
 
 			" Stop on Error
@@ -460,6 +461,22 @@ function! s:FindOptionalPHPDocComment() " {{{
 	return s:lineStart
 endfunction
 " }}}
+function! s:SkipComments(lineStart) " {{{
+	let skipLine = a:lineStart
+	while match(getline(skipLine - 1), '\/\/') != -1
+		let skipLine = skipLine - 1
+	endwhile
+	return skipLine
+endfunction
+" }}}
+function! s:SkipCommentsForward(lineStart) " {{{
+	let skipLine = a:lineStart
+	while match(getline(skipLine), '\/\/') != -1
+		let skipLine = skipLine + 1
+	endwhile
+	return skipLine
+endfunction
+" }}}
 function! s:FindPureBlockEnd(startPair, endPair, searchStartPairFirst, ...) " {{{
 	" Place Cursor on the opening pair/brace?
 	if a:searchStartPairFirst == s:SEARCH_PAIR_START_FIRST
@@ -527,6 +544,7 @@ endfunction
 function! PHPFoldText() " {{{
 	let currentLine = v:foldstart
 	let lines = (v:foldend - v:foldstart + 1)
+	let currentLine = s:SkipCommentsForward(currentLine)
 	let lineString = getline(currentLine)
 	" See if we folded a marker
 	if strridx(lineString, "{{{") != -1 " }}}
